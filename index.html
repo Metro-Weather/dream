@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGI Studio Lite</title>
+    <style>
+        /* --- 1. CORE LAYOUT & DARK THEME STYLES --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; user-select: none; }
+        body { background: #0f1117; color: #e2e8f0; display: flex; flex-direction: column; height: 100vh; font-size: 13px; }
+        
+        /* Top Navigation */
+        header { height: 40px; background: #181b24; border-bottom: 1px solid #282c3a; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+        .btn { background: #282c3a; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #3b82f6; }
+        
+        /* Main Workspace split into Sidebars and Viewport */
+        .workspace { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 220px; background: #181b24; border-right: 1px solid #282c3a; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-right { border-right: none; border-left: 1px solid #282c3a; }
+        .viewport-container { flex: 1; background: #050508; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* Bottom Animation Bar */
+        footer { height: 60px; background: #181b24; border-top: 1px solid #282c3a; display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+        input[type="range"] { flex: 1; accent-color: #3b82f6; }
+        
+        /* Form Controls */
+        label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 3px; }
+        input[type="color"], input[type="number"], select { width: 100%; background: #090a0f; border: 1px solid #282c3a; color: #fff; padding: 4px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- TOP NAVIGATION -->
+    <header>
+        <strong>CGI Studio Lite</strong>
+        <div>
+            <button class="btn" onclick="exportJSON()">Save JSON</button>
+            <button class="btn" onclick="document.getElementById('import-file').click()">Load JSON</button>
+            <input type="file" id="import-file" style="display:none" onchange="importJSON(event)">
+            <button class="btn" onclick="runAIGenerator()">AI Gen</button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="workspace">
+        
+        <!-- LEFT SIDEBAR: Scene Outliner & Add Controls -->
+        <div class="sidebar">
+            <h3>Add Primitives</h3>
+            <button class="btn" onclick="addObject('cube')">+ Add Cube</button>
+            <button class="btn" onclick="addObject('sphere')">+ Add Sphere</button>
+            
+            <h3 style="margin-top: 15px;">Outliner</h3>
+            <div id="outliner" style="flex:1; overflow-y:auto;"></div>
+        </div>
+
+        <!-- 3D VIEWPORT CANVAS -->
+        <div class="viewport-container">
+            <canvas id="viewport"></canvas>
+        </div>
+
+        <!-- RIGHT SIDEBAR: Object Properties -->
+        <div class="sidebar sidebar-right">
+            <h3>Properties</h3>
+            <div id="properties-panel">
+                <label>Color</label>
+                <input type="color" id="prop-color" onchange="updateSelected()">
+                
+                <label style="margin-top:8px;">Scale</label>
+                <input type="number" id="prop-scale" value="50" step="5" oninput="updateSelected()">
+                
+                <button class="btn" style="margin-top:15px; background:#ef4444;" onclick="deleteSelected()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM TIMELINE -->
+    <footer>
+        <button class="btn" onclick="togglePlay()" id="play-btn">Play</button>
+        <input type="range" id="timeline" min="0" max="100" value="0" oninput="scrubTimeline(this.value)">
+        <span id="frame-num">0 / 100</span>
+    </footer>
+
+    <!-- APP ENGINE SCRIPT -->
+    <script>
+        // --- 2. GLOBAL STATE ---
+        const canvas = document.getElementById('viewport');
+        const ctx = canvas.getContext('2d');
+        
+        let objects = [];       // Array holding scene objects
+        let selectedId = null;  // Currently selected object ID
+        let currentFrame = 0;   // Timeline frame (0 - 100)
+        let isPlaying = false;  // Playhead status
+        let animationTimer;     // Loop timer
+
+        // --- 3. INITIALIZATION & RESIZE ---
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Add default object
+            addObject('cube');
+            
+            // Start render loop
+            render();
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            render();
+        }
+
+        // --- 4. OBJECT CREATION & SCENE DATA ---
+        function addObject(type) {
+            const obj = {
+                id: Date.now(),
+                name: type.toUpperCase() + '_' + (objects.length + 1),
+                type: type,
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                size: 50,
+                color: '#3b82f6',
+                rotation: 0
+            };
+            objects.push(obj);
+            selectObject(obj.id);
+        }
+
+        function selectObject(id) {
+            selectedId = id;
+            updateOutlinerUI();
+            updatePropertiesUI();
+            render();
+        }
+
+        function deleteSelected() {
+            objects = objects.filter(o => o.id !== selectedId);
+            selectedId = null;
+            updateOutlinerUI();
+            updatePropertiesUI();
+            render();
+        }
+
+        // --- 5. UI UPDATES ---
+        function updateOutlinerUI() {
+            const container = document.getElementById('outliner');
+            container.innerHTML = '';
+            objects.forEach(obj => {
+                const item = document.createElement('div');
+                item.innerText = obj.name;
+                item.style.padding = '4px 8px';
+                item.style.cursor = 'pointer';
+                item.style.borderRadius = '4px';
+                item.style.background = (obj.id === selectedId) ? '#3b82f6' : 'transparent';
+                item.onclick = () => selectObject(obj.id);
+                container.appendChild(item);
+            });
+        }
+
+        function updatePropertiesUI() {
+            const obj = objects.find(o => o.id === selectedId);
+            if (!obj) return;
+            document.getElementById('prop-color').value = obj.color;
+            document.getElementById('prop-scale').value = obj.size;
+        }
+
+        function updateSelected() {
+            const obj = objects.find(o => o.id === selectedId);
+            if (!obj) return;
+            obj.color = document.getElementById('prop-color').value;
+            obj.size = parseFloat(document.getElementById('prop-scale').value);
+            render();
+        }
+
+        // --- 6. CANVAS 2D RENDERER (Fake 3D Projections) ---
+        function render() {
+            // Clear canvas viewport
+            ctx.fillStyle = '#050508';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw floor grid
+            ctx.strokeStyle = '#1e293b';
+            ctx.beginPath();
+            for(let i = 0; i < canvas.width; i += 40) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+            for(let j = 0; j < canvas.height; j += 40) { ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); }
+            ctx.stroke();
+
+            // Render scene objects
+            objects.forEach(obj => {
+                ctx.save();
+                
+                // Position object + calculate basic frame animation shift
+                const animX = obj.x + Math.sin((currentFrame + obj.id) * 0.05) * 20;
+                ctx.translate(animX, obj.y);
+                ctx.rotate((obj.rotation + currentFrame * 2) * Math.PI / 180);
+                
+                ctx.fillStyle = obj.color;
+                ctx.strokeStyle = (obj.id === selectedId) ? '#ffffff' : '#000000';
+                ctx.lineWidth = (obj.id === selectedId) ? 3 : 1;
+
+                // Primitive 2D shapes imitating 3D mesh views
+                if (obj.type === 'cube') {
+                    ctx.fillRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size);
+                    ctx.strokeRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size);
+                } else if (obj.type === 'sphere') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, obj.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        // --- 7. TIMELINE & PLAYBACK ENGINE ---
+        function scrubTimeline(val) {
+            currentFrame = parseInt(val);
+            document.getElementById('frame-num').innerText = `${currentFrame} / 100`;
+            render();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('play-btn').innerText = isPlaying ? 'Pause' : 'Play';
+            if (isPlaying) {
+                animationTimer = setInterval(() => {
+                    currentFrame = (currentFrame + 1) % 100;
+                    document.getElementById('timeline').value = currentFrame;
+                    scrubTimeline(currentFrame);
+                }, 30);
+            } else {
+                clearInterval(animationTimer);
+            }
+        }
+
+        // --- 8. AI SCENE GENERATOR ---
+        function runAIGenerator() {
+            const prompt = prompt("Enter scene prompt (e.g., 'sunset neon spheres'):");
+            if (!prompt) return;
+
+            // Simple rule-based mock scene creation
+            objects = [];
+            for (let i = 0; i < 5; i++) {
+                objects.push({
+                    id: Date.now() + i,
+                    name: 'AI_Node_' + (i + 1),
+                    type: i % 2 === 0 ? 'cube' : 'sphere',
+                    x: (canvas.width / 6) * (i + 1),
+                    y: canvas.height / 2,
+                    size: 40 + Math.random() * 30,
+                    color: prompt.includes('neon') ? '#00ffcc' : '#f43f5e',
+                    rotation: i * 15
+                });
+            }
+            selectObject(objects[0].id);
+        }
+
+        // --- 9. JSON EXPORT & IMPORT ---
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(objects));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "scene.json";
+            a.click();
+        }
+
+        function importJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                objects = JSON.parse(event.target.result);
+                if (objects.length) selectObject(objects[0].id);
+            };
+            reader.readAsText(file);
+        }
+
+        // Run application on load
+        window.onload = init;
+    </script>
+</body>
+</html>
