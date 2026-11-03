@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Upload a photo, type what should happen, get a melty little dream video.">
+<title>Dream.</title>
+<style>
+:root{--bg:#0b0b10;--card:#15151d;--line:#262633;--txt:#f1f0f7;--dim:#9a98ad;--a1:#a66bff;--a2:#ff5fa2}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{min-height:100vh;min-height:100dvh}
+main{max-width:520px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 16px}
+h1{font-size:34px;letter-spacing:-1px;margin:0;font-weight:800;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+header p{margin:0;color:var(--dim);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px}
+.lbl{font-size:13px;color:var(--dim);margin:0 2px 8px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+#pick{display:flex;align-items:center;justify-content:center;gap:10px;min-height:150px;border:2px dashed #34344a;border-radius:16px;cursor:pointer;position:relative;overflow:hidden;color:var(--dim);font-size:17px;font-weight:600;text-align:center}
+#pick:focus-within{outline:3px solid var(--a1);outline-offset:2px}
+#pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+#pick img{max-width:100%;max-height:260px;display:block;border-radius:12px}
+#pick.has{border-style:solid;border-color:#2c2c3c;min-height:0;padding:6px}
+#cmd{width:100%;font-size:18px;padding:15px 14px;border-radius:14px;border:1px solid #333344;background:#0f0f15;color:var(--txt);outline:none}
+#cmd:focus{border-color:var(--a1);box-shadow:0 0 0 3px rgba(166,107,255,.25)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{border:1px solid #33334a;background:#1c1c27;color:#dcdbe8;border-radius:999px;padding:9px 13px;font-size:15px;cursor:pointer}
+.chip:active{transform:scale(.96)}
+.btn{display:block;width:100%;border:0;border-radius:16px;min-height:58px;font-size:19px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--a1),var(--a2));margin-top:4px}
+.btn:disabled{opacity:.45}
+.btn:focus-visible,.chip:focus-visible,.btn2:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.row{display:flex;gap:10px;margin-top:10px}
+.btn2{flex:1;border:1px solid #3a3a50;background:#1d1d28;color:var(--txt);border-radius:16px;min-height:54px;font-size:17px;font-weight:650;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}
+.btn2:disabled{opacity:.45}
+#status{min-height:20px;color:var(--dim);font-size:15px;margin:12px 2px 6px}
+.bar{height:6px;background:#22222e;border-radius:9px;overflow:hidden;display:none}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width .2s}
+#skip{display:none;background:none;border:0;color:#c9b6ff;font-size:15px;text-decoration:underline;padding:10px 2px;cursor:pointer}
+#out{display:none}
+#view{width:100%;height:auto;display:block;border-radius:14px;background:#000}
+#read{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:#b9f5c6;margin:10px 2px 0;word-break:break-word}
+#saved{display:none}
+small.foot{display:block;text-align:center;color:#6e6c80;font-size:13px;margin-top:18px}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Dream.</h1><p>photo + words = melty video</p></header>
+
+<section class="card" aria-label="Photo">
+  <div class="lbl">1. photo</div>
+  <label id="pick"><span id="pickTxt">Tap to choose a photo</span><input id="file" type="file" accept="image/*" aria-label="Choose a photo"></label>
+</section>
+
+<section class="card" aria-label="Command">
+  <div class="lbl">2. what should happen?</div>
+  <input id="cmd" type="text" placeholder="zoom in and melt" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" aria-label="Command">
+  <div class="chips" id="chips"></div>
+</section>
+
+<button class="btn" id="go">Dream it</button>
+<div id="status" role="status" aria-live="polite"></div>
+<div class="bar" id="bar"><i id="barI"></i></div>
+<button id="skip">skip the tiny AI, use quick mode</button>
+
+<section class="card" id="out" aria-label="Result">
+  <canvas id="view" width="16" height="16"></canvas>
+  <div id="read"></div>
+  <div class="row">
+    <button class="btn2" id="save">Save video</button>
+    <button class="btn2" id="again">Make again</button>
+  </div>
+  <div class="row" id="saved">
+    <button class="btn2" id="share">Share / Save to Photos</button>
+    <a class="btn2" id="dl" href="#" download="dream.mp4">Download</a>
+  </div>
+</section>
+
+<small class="foot">everything runs on your phone. nothing gets uploaded.</small>
+</main>
+
+<script type="module">
+const CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js';
+const MODEL = 'onnx-community/depth-anything-v2-small';
+const LONG = 512, FPS = 12, NFRAMES = 48;
+const $ = id => document.getElementById(id);
+const ui = { file:$('file'), pick:$('pick'), pickTxt:$('pickTxt'), cmd:$('cmd'), go:$('go'), status:$('status'), bar:$('bar'), barI:$('barI'), skip:$('skip'), out:$('out'), view:$('view'), read:$('read'), save:$('save'), again:$('again'), saved:$('saved'), share:$('share'), dl:$('dl') };
+const D = window.__dream = { state:'idle', frames:[], depthSource:null, read:null, errors:[], video:null };
+
+const CHIPS = ['zoom in','melt','spin + swirl','walk left','explode','wave','fly up','dream','crazy zoom in and melt'];
+for (const c of CHIPS) { const b = document.createElement('button'); b.className='chip'; b.type='button'; b.textContent=c; b.onclick=()=>{ ui.cmd.value=c; }; $('chips').appendChild(b); }
+
+function status(t){ ui.status.textContent = t; }
+function bar(p){ if (p == null) { ui.bar.style.display='none'; return; } ui.bar.style.display='block'; ui.barI.style.width = Math.max(0,Math.min(100,p*100)).toFixed(1)+'%'; }
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+/* ---------------- photo ---------------- */
+let photo = null;  // {canvas,w,h,url}
+let depthCanvas = null;
+ui.file.addEventListener('change', async () => {
+  const f = ui.file.files && ui.file.files[0]; if (!f) return;
+  try {
+    const url = URL.createObjectURL(f);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('could not read that photo')); i.src = url; });
+    const s = LONG / Math.max(img.naturalWidth, img.naturalHeight);
+    const w = Math.max(2, Math.round(img.naturalWidth * s / 2) * 2), h = Math.max(2, Math.round(img.naturalHeight * s / 2) * 2);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h);
+    photo = { canvas:c, w, h };
+    depthCanvas = null; D.depthSource = null;
+    ui.pick.classList.add('has'); ui.pickTxt.textContent = '';
+    let pv = ui.pick.querySelector('img'); if (!pv) { pv = document.createElement('img'); pv.alt = 'your photo'; ui.pick.insertBefore(pv, ui.file); }
+    pv.src = url;
+    status('photo ready. type a command and tap Dream it.');
+    loadModel();
+  } catch (e) { status('could not open that photo, try another one'); console.warn(e); }
+});
+
+/* ---------------- tiny AI (depth) ---------------- */
+let modelState = 'idle', modelPromise = null, depthPipe = null, modelProg = 0;
+const forceQuick = /[?&]quick=1/.test(location.search);
+function loadModel(){
+  if (modelPromise) return modelPromise;
+  if (forceQuick) { modelState = 'failed'; return (modelPromise = Promise.resolve(false)); }
+  modelState = 'loading';
+  const files = {};
+  modelPromise = (async () => {
+    try {
+      const T = await import(CDN);
+      T.env.allowLocalModels = false;
+      depthPipe = await T.pipeline('depth-estimation', MODEL, { dtype:'q8', device:'wasm', progress_callback: (e) => {
+        if (e && e.status === 'progress' && e.file) { files[e.file] = [e.loaded || 0, e.total || 0]; }
+        if (e && e.status === 'done' && e.file && files[e.file]) { files[e.file][0] = files[e.file][1]; }
+        let l = 0, t = 0; for (const k in files) { l += files[k][0]; t += files[k][1]; }
+        if (t > 0) modelProg = l / t;
+      }});
+      modelState = 'ready'; return true;
+    } catch (e) { console.warn('tiny AI failed to load, using quick mode', e); modelState = 'failed'; return false; }
+  })();
+  return modelPromise;
+}
+
+function smoothInto(src, w, h){
+  // blur by shrinking and growing again (works everywhere, no ctx.filter needed)
+  const sm = document.createElement('canvas'); sm.width = 64; sm.height = Math.max(8, Math.round(64 * h / w));
+  const a = sm.getContext('2d'); a.imageSmoothingEnabled = true; a.drawImage(src, 0, 0, sm.width, sm.height);
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  const b = out.getContext('2d'); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high';
+  b.drawImage(src, 0, 0, w, h); b.globalAlpha = 0.7; b.drawImage(sm, 0, 0, w, h); b.globalAlpha = 1;
+  return out;
+}
+
+async function aiDepth(){
+  const res = await depthPipe(photo.canvas.toDataURL('image/jpeg', 0.92));
+  const r = Array.isArray(res) ? res[0] : res;
+  const dimg = r.depth;
+  const c = document.createElement('canvas'); c.width = dimg.width; c.height = dimg.height;
+  const g = c.getContext('2d'); const id = g.createImageData(dimg.width, dimg.height);
+  const ch = dimg.channels || 1, src = dimg.data;
+  let mn = 255, mx = 0; for (let i = 0; i < dimg.width * dimg.height; i++) { const v = src[i * ch]; if (v < mn) mn = v; if (v > mx) mx = v; }
+  const sc = 255 / Math.max(1, mx - mn);
+  for (let i = 0; i < dimg.width * dimg.height; i++) { const v = (src[i * ch] - mn) * sc; id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = v; id.data[i*4+3] = 255; }
+  g.putImageData(id, 0, 0);
+  return smoothInto(c, photo.w, photo.h);
+}
+
+function fakeDepth(){
+  // quick guess: brighter + more central + lower in frame = closer
+  const w = 96, h = Math.max(8, Math.round(96 * photo.h / photo.w));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.drawImage(photo.canvas, 0, 0, w, h);
+  const id = g.getImageData(0, 0, w, h), d = id.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    const lum = (0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]) / 255;
+    const dx = x / w - 0.5, dy = y / h - 0.5, cen = Math.max(0, 1 - Math.sqrt(dx*dx + dy*dy) * 1.7);
+    const v = Math.min(1, 0.35 * lum + 0.45 * cen + 0.2 * (y / h));
+    d[i] = d[i+1] = d[i+2] = v * 255; d[i+3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  return smoothInto(c, photo.w, photo.h);
+}
+
+/* ---------------- command reader ---------------- */
+function readCommand(raw){
+  const s = ' ' + String(raw || '').toLowerCase().replace(/[^a-z0-9!+ ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const has = re => re.test(s);
+  const p = { zoom:0, rot:0, mx:0, my:0, swirl:0, melt:0, wave:0, explode:0, breathe:0, flow:0.35, shake:0, jump:0, glitch:0, hue:0.004, warm:0, dance:0 };
+  const tags = [];
+  let k = 1;
+  if (has(/ (slight|slightly|little|bit|gentle|gently|slow|slowly|soft|softly|calm|tiny) /)) { k = 0.5; tags.push('gentle'); }
+  if (has(/ (very|really|super|fast|quick|quickly|hard|big|lots|so) /)) { k = 1.6; tags.push('strong'); }
+  if (has(/ (crazy|insane|insanely|extreme|extremely|wild|max|maximum|chaos|chaotic|ultra|mega) /) || /!!/.test(s)) { k = 2.3; tags.push('crazy'); }
+  const moveVerb = has(/ (walk|walks|walking|move|moves|moving|go|goes|pan|slide|run|runs|running|drift|drive|swim|travel|camera) /);
+  const spinning = !has(/ (turn|turns|turning) into /) && has(/ (spin|spins|spinning|rotate|rotates|rotating|turn|turns|turning|roll|twirl|twist|twisting|tornado|vortex|whirl) /);
+  if (has(/ (zoom out|pull back|pull out|back up|away|farther|further|zoom away|shrink) /)) { p.zoom -= 0.016; tags.push('zoom out'); }
+  else if (has(/ (zoom|closer|push in|approach|dolly|into|enter|forward|grow|bigger) /)) { p.zoom += 0.017; tags.push('zoom in'); }
+  if (spinning) { const ccw = has(/ (counter|anti|backwards|left) /); p.rot += (ccw ? -1 : 1) * 0.034; tags.push('spin'); }
+  if (has(/ left /) && (!spinning || moveVerb)) { p.mx -= 0.009; tags.push('move left'); }
+  if (has(/ right /) && (!spinning || moveVerb)) { p.mx += 0.009; tags.push('move right'); }
+  if (has(/ (fly|flies|flying|float|floats|floating|rise|rises|rising|ascend|levitate|up|upward|upwards|lift|launch|rocket) /) && !has(/ blow up /)) { p.my -= 0.009; tags.push('fly up'); }
+  if (has(/ (down|downward|fall|falls|falling|sink|sinks|drop|drops|rain|raining|descend) /)) { p.my += 0.009; tags.push('fall down'); }
+  if (has(/ (melt|melts|melting|drip|drips|dripping|liquid|liquify|liquefy|drool|ooze|goo|slime|lava|wet) /)) { p.melt += 0.0055; tags.push('melt'); }
+  if (has(/ (swirl|swirls|swirling|vortex|whirlpool|tornado|twist|twisting|spiral|hurricane|portal|warp) /)) { p.swirl += 0.07; tags.push('swirl'); }
+  if (has(/ (explode|explodes|exploding|explosion|blow up|boom|shatter|scatter|disintegrate|burst|bomb|nuke|break|dust|thanos) /)) { p.explode += 0.012; tags.push('explode'); }
+  if (has(/ (wave|waves|waving|wobble|wobbly|ripple|jelly|jiggle|water|ocean|underwater|flag|wiggle|squiggle) /)) { p.wave += 1; tags.push('wave'); }
+  if (has(/ (breathe|breathing|breath|pulse|pulsing|heartbeat|throb|bounce|bouncing|beat|alive) /)) { p.breathe += 1; tags.push('breathe'); }
+  if (has(/ (shake|shaking|earthquake|vibrate|tremble|shiver|scared) /)) { p.shake += 1; tags.push('shake'); }
+  if (has(/ (jump|jumps|jumping|hop|hops) /)) { p.jump += 1; tags.push('jump'); }
+  if (has(/ (dance|dances|dancing|party|groove|vibe|vibing) /)) { p.dance += 1; p.wave += 0.5; tags.push('dance'); }
+  if (has(/ (glitch|glitchy|corrupt|broken|error|vhs|static|cursed) /)) { p.glitch += 1; tags.push('glitch'); }
+  if (has(/ (fire|burn|burning|flame|flames|smoke|hot|hell|lava) /)) { p.warm += 1; p.melt -= 0.004; p.my -= 0.003; tags.push('burn'); }
+  if (has(/ (rainbow|color|colors|colour|colours|trippy|psychedelic|acid|neon|disco) /)) { p.hue += 0.03; tags.push('colors'); }
+  if (has(/ (dream|dreamy|dreaming|trip|hallucinate|hallucination|surreal|weird|magic|morph|morphing|ai|deforum|imagine|transform|become|turn into) /)) { p.flow += 0.9; p.hue += 0.008; tags.push('dream'); }
+  const motionTags = tags.filter(t => !['gentle','strong','crazy'].includes(t));
+  if (!motionTags.length) { p.zoom += 0.014; p.swirl += 0.05; p.flow += 0.7; tags.push('dream zoom', 'swirl'); }
+  for (const key of ['zoom','rot','mx','my','swirl','melt','explode','wave','breathe','shake','jump','dance','glitch']) p[key] *= k;
+  p.flow *= Math.sqrt(k); p.k = k;
+  return { p, tags };
+}
+
+/* ---------------- WebGL dream engine ---------------- */
+const VS = 'attribute vec2 a;varying vec2 v;void main(){v=a*0.5+0.5;gl_Position=vec4(a,0.0,1.0);}';
+const COMMON = `
+precision highp float;
+varying vec2 v;
+uniform float uAsp, uSeed, uT, uDA;
+uniform sampler2D uDepth;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }
+vec2 mir(vec2 q){ vec2 m = mod(q, 2.0); return 1.0 - abs(1.0 - m); }
+float dep(vec2 q){ return texture2D(uDepth, mir(q)).r; }
+/* A = zoom, rot, swirl, melt ; B = mx, my, explode, - */
+vec2 warp(vec2 uv, float d, vec4 A, vec4 B){
+  float w = mix(1.0 - uDA, 1.0 + uDA, d);
+  vec2 p = uv - 0.5; p.x *= uAsp;
+  p *= exp(-A.x * w);
+  float r2 = dot(p,p);
+  float ang = A.y * (0.6 + 0.4*w) + A.z * exp(-r2*5.0) * w;
+  float c = cos(ang), s = sin(ang);
+  p = vec2(c*p.x - s*p.y, s*p.x + c*p.y);
+  p -= B.xy * w;
+  float ang0 = atan(p.y, p.x);
+  p *= 1.0 - B.z * w * (0.4 + 1.6 * vn(vec2(ang0 * 3.0 + uSeed, length(p) * 2.0)));
+  p += B.z * 0.9 * (vec2(vn(p*13.0 + uSeed), vn(p*13.0 + uSeed + 17.0)) - 0.5);
+  float col = vn(vec2(p.x*9.0 + uSeed*3.1, 0.5));
+  p.y -= A.w * (0.35 + 1.4*col) * (0.6 + 0.6*w);
+  p.x /= uAsp;
+  return p + 0.5;
+}
+`;
+const FS_STEP = COMMON + `
+uniform sampler2D uPrev, uOrig;
+uniform vec4 uIA, uIB, uCA, uCB, uBlob;
+uniform vec2 uPx;
+uniform float uWave, uWavePh, uFlow, uJit, uFresh, uHue, uSharp, uNoise, uSat;
+vec3 hueRot(vec3 c, float a){ const vec3 k = vec3(0.57735); float ca = cos(a); return c*ca + cross(k,c)*sin(a) + k*dot(k,c)*(1.0-ca); }
+void main(){
+  vec2 uv = v;
+  float d0 = dep(uv);
+  vec2 qc = warp(uv, d0, uCA, uCB);
+  float d = dep(qc);
+  qc = warp(uv, d, uCA, uCB);
+  vec2 q = warp(uv, d, uIA, uIB);
+  q.x += uWave * 0.006 * sin(q.y*11.0 + uWavePh + uSeed);
+  q.y += uWave * 0.003 * sin(q.x*7.0 - uWavePh*0.8);
+  q += uFlow * 0.0035 * vec2(sin(q.y*9.0 + uT*13.0 + uSeed), cos(q.x*8.0 - uT*11.0 + uSeed*1.7));
+  q += uFlow * 0.004 * (vec2(vn(q*4.0 + uT*3.0 + uSeed), vn(q*4.0 - uT*3.0 + uSeed + 9.0)) - 0.5);
+  q += uJit * 0.03 * (vec2(vn(q*6.0 + uSeed + uT*40.0), vn(q*6.0 + uSeed + 31.0 + uT*40.0)) - 0.5);
+  vec2 bp = q - uBlob.xy; q -= bp * uBlob.z * exp(-dot(bp,bp)*40.0);
+  q = mir(q);
+  vec3 c = texture2D(uPrev, q).rgb;
+  vec3 b = (texture2D(uPrev, mir(q + vec2(uPx.x,0.0))).rgb + texture2D(uPrev, mir(q - vec2(uPx.x,0.0))).rgb
+          + texture2D(uPrev, mir(q + vec2(0.0,uPx.y))).rgb + texture2D(uPrev, mir(q - vec2(0.0,uPx.y))).rgb) * 0.25;
+  c = c + (c - b) * uSharp;
+  vec3 f = texture2D(uOrig, mir(qc)).rgb;
+  c = mix(c, f, uFresh);
+  c = hueRot(c, uHue);
+  float l = dot(c, vec3(0.299,0.587,0.114));
+  c = mix(vec3(l), c, 1.0 + uSat);
+  c += (hash(uv*917.0 + uSeed + uT*131.0) - 0.5) * uNoise;
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+const FS_SHOW = `
+precision highp float;
+varying vec2 v;
+uniform sampler2D uTex;
+uniform float uGHue, uFlick, uSplit, uWarm;
+uniform vec2 uPx;
+vec3 hueRot(vec3 c, float a){ const vec3 k = vec3(0.57735); float ca = cos(a); return c*ca + cross(k,c)*sin(a) + k*dot(k,c)*(1.0-ca); }
+void main(){
+  vec3 c;
+  c.r = texture2D(uTex, v + vec2(uSplit*uPx.x, 0.0)).r;
+  c.g = texture2D(uTex, v).g;
+  c.b = texture2D(uTex, v - vec2(uSplit*uPx.x, 0.0)).b;
+  c = hueRot(c, uGHue) * (1.0 + uFlick);
+  c = mix(c, c * vec3(1.25, 0.9, 0.6), uWarm);
+  vec2 p = v - 0.5; c *= 1.0 - dot(p,p) * 0.45;
+  gl_FragColor = vec4(clamp(c,0.0,1.0), 1.0);
+}`;
+const FS_COPY = 'precision mediump float;varying vec2 v;uniform sampler2D uTex;void main(){gl_FragColor=texture2D(uTex,v);}';
+
+let E = null;
+function engine(){
+  if (E) return E;
+  const cv = document.createElement('canvas');
+  const gl = cv.getContext('webgl', { preserveDrawingBuffer:true, premultipliedAlpha:false, antialias:false });
+  if (!gl) throw new Error('This browser has no WebGL');
+  function sh(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(s)); return s; }
+  function prog(fs){ const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(p)); const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); } return { p, u }; }
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  E = { cv, gl, step:prog(FS_STEP), show:prog(FS_SHOW), copy:prog(FS_COPY), w:0, h:0 };
+  return E;
+}
+function tex(gl, src, w, h){
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  if (src) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  return t;
+}
+function fbo(gl, w, h){ const t = tex(gl, null, w, h); const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return { t, f }; }
+
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+async function renderFrames(p, seed, onProg){
+  const e = engine(), gl = e.gl, w = photo.w, h = photo.h;
+  e.cv.width = w; e.cv.height = h;
+  const T = {}; // fresh textures per render (small, freed after)
+  T.orig = tex(gl, photo.canvas); T.depth = tex(gl, depthCanvas);
+  const A = fbo(gl, w, h), B = fbo(gl, w, h), O = fbo(gl, w, h);
+  let cur = A, nxt = B;
+  gl.viewport(0, 0, w, h);
+  const bindTex = (unit, t, loc) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(loc, unit); };
+  // frame 0 = the photo
+  gl.useProgram(e.copy.p); gl.bindFramebuffer(gl.FRAMEBUFFER, cur.f); bindTex(0, T.orig, e.copy.u.uTex); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  const R = mulberry(seed), sd = R() * 100;
+  const frames = [];
+  let cz = 0, cr = 0, csw = 0, cm = 0, cx = 0, cy = 0, cex = 0;
+  const dreamy = Math.min(1, p.flow / 1.2);
+  let blobLeft = 0, blob = [0.5, 0.5, 0];
+  for (let i = 0; i < NFRAMES; i++) {
+    const t = i / NFRAMES;
+    if (i > 0) {
+      const ease = Math.min(1, i / 6);
+      let z = p.zoom * ease + p.breathe * 0.028 * Math.sin(t * Math.PI * 2 * 2.0);
+      let r = p.rot * ease + p.dance * 0.05 * Math.sin(t * Math.PI * 2 * 2.5);
+      let mx = p.mx * ease + (p.shake ? (R() - 0.5) * 0.02 * p.shake : 0) + p.dance * 0.012 * Math.sin(t * Math.PI * 2 * 2.5 + 1);
+      let my = p.my * ease + (p.shake ? (R() - 0.5) * 0.02 * p.shake : 0) + p.jump * -0.035 * Math.cos(t * Math.PI * 2 * 2.0) * Math.PI * 2 * 2.0 / NFRAMES * 3;
+      let sw = p.swirl * ease, ml = p.melt * ease, ex = p.explode * ease * (0.5 + t);
+      cz += z; cr += r; csw += sw; cm += ml; cx += mx; cy += my; cex += ex * 0.9;
+      // occasional morph blobs / jitter, like a model changing its mind
+      let jit = 0.12 + 0.25 * dreamy + (p.glitch ? 0.3 : 0);
+      if (R() < 0.12 + 0.12 * dreamy + 0.2 * p.glitch) jit += 0.7 + R() * 1.4;
+      if (blobLeft <= 0 && R() < 0.18 + 0.2 * dreamy) { blob = [0.2 + R() * 0.6, 0.2 + R() * 0.6, (R() < 0.5 ? -1 : 1) * (0.02 + 0.04 * R()) * (0.6 + dreamy)]; blobLeft = 3 + Math.floor(R() * 5); }
+      const bz = blobLeft-- > 0 ? blob[2] : 0;
+      const u = e.step.u;
+      gl.useProgram(e.step.p); gl.bindFramebuffer(gl.FRAMEBUFFER, nxt.f);
+      bindTex(0, cur.t, u.uPrev); bindTex(1, T.orig, u.uOrig); bindTex(2, T.depth, u.uDepth);
+      gl.uniform1f(u.uAsp, w / h); gl.uniform1f(u.uSeed, sd); gl.uniform1f(u.uT, t); gl.uniform1f(u.uDA, 0.65);
+      gl.uniform4f(u.uIA, z, r, sw, ml); gl.uniform4f(u.uIB, mx, my, ex, 0);
+      gl.uniform4f(u.uCA, cz, cr, csw, cm); gl.uniform4f(u.uCB, cx, cy, cex, 0);
+      gl.uniform4f(u.uBlob, blob[0], blob[1], bz, 0);
+      gl.uniform2f(u.uPx, 1 / w, 1 / h);
+      gl.uniform1f(u.uWave, p.wave); gl.uniform1f(u.uWavePh, t * Math.PI * 2 * 2.2);
+      gl.uniform1f(u.uFlow, p.flow); gl.uniform1f(u.uJit, jit);
+      const fresh = (p.explode > 0 || p.melt > 0.008 ? 0.06 : 0.1) * (p.k > 2 ? 0.7 : 1);
+      gl.uniform1f(u.uFresh, fresh);
+      gl.uniform1f(u.uHue, (p.hue + (p.glitch && R() < 0.15 ? 0.6 : 0)) * (R() < 0.5 ? 1 : 0.4));
+      gl.uniform1f(u.uSharp, 0.32 + 0.22 * dreamy); gl.uniform1f(u.uNoise, 0.035 + 0.03 * p.glitch); gl.uniform1f(u.uSat, 0.012);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      const tmp = cur; cur = nxt; nxt = tmp;
+    }
+    // present
+    const s = e.show.u;
+    gl.useProgram(e.show.p); gl.bindFramebuffer(gl.FRAMEBUFFER, O.f); bindTex(0, cur.t, s.uTex);
+    gl.uniform1f(s.uGHue, 0.25 * Math.sin(t * 5.0 + sd) * (0.3 + dreamy) + (p.hue > 0.02 ? t * 2.0 : 0));
+    gl.uniform1f(s.uFlick, (R() - 0.5) * 0.07);
+    gl.uniform1f(s.uSplit, p.glitch ? (R() < 0.35 ? 3 + R() * 6 : 1) : (R() < 0.1 ? 1.5 : 0.4));
+    gl.uniform1f(s.uWarm, Math.min(0.6, p.warm * 0.4 * (0.4 + t)));
+    gl.uniform2f(s.uPx, 1 / w, 1 / h);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const px = new Uint8ClampedArray(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    frames.push(new ImageData(px, w, h));
+    if (i % 4 === 3) { onProg && onProg((i + 1) / NFRAMES); await tick(); }
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  for (const f of [A, B, O]) { gl.deleteFramebuffer(f.f); gl.deleteTexture(f.t); }
+  gl.deleteTexture(T.orig); gl.deleteTexture(T.depth);
+  return frames;
+}
+
+/* ---------------- preview loop ---------------- */
+let playTimer = null, playIdx = 0, recording = false;
+const vctx = ui.view.getContext('2d');
+function startPreview(){
+  stopPreview(); playIdx = 0;
+  playTimer = setInterval(() => { if (recording || !D.frames.length) return; vctx.putImageData(D.frames[playIdx % D.frames.length], 0, 0); playIdx++; }, 1000 / FPS);
+}
+function stopPreview(){ if (playTimer) clearInterval(playTimer); playTimer = null; }
+
+/* ---------------- main flow ---------------- */
+let busy = false, lastCmd = '';
+let skipResolve = null;
+ui.skip.onclick = () => { if (skipResolve) skipResolve('skip'); };
+async function getDepth(){
+  if (depthCanvas) return depthCanvas;
+  loadModel();
+  if (modelState === 'loading') {
+    ui.skip.style.display = 'inline-block';
+    const skipP = new Promise(r => { skipResolve = r; });
+    const iv = setInterval(() => { status('loading tiny AI (first time only)... ' + Math.round(modelProg * 100) + '%'); bar(modelProg); }, 250);
+    const r = await Promise.race([modelPromise, skipP]);
+    clearInterval(iv); ui.skip.style.display = 'none'; skipResolve = null;
+    if (r === 'skip') { depthCanvas = fakeDepth(); D.depthSource = 'quick (skipped)'; return depthCanvas; }
+  }
+  if (modelState === 'ready') {
+    try { status('tiny AI is looking at your photo...'); bar(0.15); await tick(); depthCanvas = await aiDepth(); D.depthSource = 'tiny AI'; return depthCanvas; }
+    catch (e) { console.warn('depth failed, quick mode', e); }
+  }
+  depthCanvas = fakeDepth(); D.depthSource = 'quick guess'; return depthCanvas;
+}
+
+async function dream(newSeed){
+  if (busy) return;
+  if (!photo) { status('pick a photo first'); ui.pick.scrollIntoView({ behavior:'smooth', block:'center' }); return; }
+  busy = true; D.state = 'working'; ui.go.disabled = ui.again.disabled = ui.save.disabled = true;
+  ui.saved.style.display = 'none';
+  try {
+    const cmd = ui.cmd.value.trim() || 'dream'; lastCmd = cmd;
+    await getDepth();
+    const { p, tags } = readCommand(cmd);
+    D.read = tags;
+    const seed = newSeed ? (Math.random() * 1e9) | 0 : ((D.seed == null ? Math.random() * 1e9 : D.seed) | 0);
+    D.seed = seed;
+    status('AI read: ' + tags.join(' + ') + '. dreaming frames...'); bar(0);
+    const frames = await renderFrames(p, seed, f => { bar(f); status('dreaming frames ' + Math.round(f * NFRAMES) + '/' + NFRAMES); });
+    D.frames = frames;
+    ui.view.width = photo.w; ui.view.height = photo.h;
+    ui.out.style.display = 'block';
+    ui.read.textContent = 'AI read: ' + tags.join(' + ') + '   |   depth: ' + D.depthSource;
+    startPreview();
+    status('done. it loops. save it or make another.'); bar(null);
+    D.state = 'done';
+    ui.out.scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch (e) {
+    console.error(e); D.errors.push(String(e && e.message || e)); D.state = 'error';
+    status('something broke: ' + (e && e.message ? e.message : e)); bar(null);
+  } finally { busy = false; ui.go.disabled = ui.again.disabled = ui.save.disabled = false; }
+}
+ui.go.onclick = () => { D.seed = null; dream(true); };
+ui.again.onclick = () => dream(true);
+ui.cmd.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ui.cmd.blur(); D.seed = null; dream(true); } });
+
+/* ---------------- save video ---------------- */
+let lastFile = null, lastUrl = null;
+function pickMime(){
+  if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return null;
+  const list = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  for (const m of list) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
+  return null;
+}
+/* ---------------- GIF fallback (when a browser cannot record video) ---------------- */
+function gifEncode(frames, delayCs){
+  const w = frames[0].width, h = frames[0].height;
+  let buf = new Uint8Array(1 << 20), n = 0;
+  const grow = k => { if (n + k > buf.length) { const nb = new Uint8Array(Math.max(buf.length * 2, n + k + 1024)); nb.set(buf.subarray(0, n)); buf = nb; } };
+  const byte = b => { grow(1); buf[n++] = b & 255; };
+  const word = v => { byte(v); byte(v >> 8); };
+  const str = s => { for (let i = 0; i < s.length; i++) byte(s.charCodeAt(i)); };
+  str('GIF89a'); word(w); word(h); byte(0xF7); byte(0); byte(0);
+  for (let r = 0; r < 6; r++) for (let g = 0; g < 7; g++) for (let b = 0; b < 6; b++) { byte(r * 51); byte(Math.round(g * 42.5)); byte(b * 51); }
+  for (let i = 252; i < 256; i++) { byte(0); byte(0); byte(0); }
+  byte(0x21); byte(0xFF); byte(11); str('NETSCAPE2.0'); byte(3); byte(1); word(0); byte(0);
+  const bayer = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  const idx = new Uint8Array(w * h);
+  for (const f of frames) {
+    const d = f.data;
+    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+      const t = (bayer[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+      const r = Math.min(5, Math.floor(d[i*4] / 255 * 5 + t)), g = Math.min(6, Math.floor(d[i*4+1] / 255 * 6 + t)), b = Math.min(5, Math.floor(d[i*4+2] / 255 * 5 + t));
+      idx[i] = r * 42 + g * 6 + b;
+    }
+    byte(0x21); byte(0xF9); byte(4); byte(0); word(delayCs); byte(0); byte(0);
+    byte(0x2C); word(0); word(0); word(w); word(h); byte(0);
+    byte(8);
+    // LZW, same scheme as the classic gif encoders
+    const CLEAR = 256, EOI = 257; let bits = 9, maxcode = 511, free = 258, clearFlag = false;
+    let acc = 0, nacc = 0; const blk = new Uint8Array(255); let bl = 0;
+    const flushBlk = () => { if (bl) { byte(bl); grow(bl); buf.set(blk.subarray(0, bl), n); n += bl; bl = 0; } };
+    const out = code => {
+      acc |= code << nacc; nacc += bits;
+      while (nacc >= 8) { blk[bl++] = acc & 255; acc >>>= 8; nacc -= 8; if (bl === 255) flushBlk(); }
+      if (free > maxcode || clearFlag) {
+        if (clearFlag) { bits = 9; maxcode = 511; clearFlag = false; }
+        else { bits++; maxcode = bits === 12 ? 4096 : (1 << bits) - 1; }
+      }
+      if (code === EOI) { while (nacc > 0) { blk[bl++] = acc & 255; acc >>>= 8; nacc -= 8; if (bl === 255) flushBlk(); } nacc = 0; acc = 0; flushBlk(); }
+    };
+    const dict = new Map();
+    out(CLEAR);
+    let ent = idx[0];
+    for (let i = 1; i < idx.length; i++) {
+      const c = idx[i], key = (ent << 8) | c, v = dict.get(key);
+      if (v !== undefined) { ent = v; continue; }
+      out(ent); ent = c;
+      if (free < 4096) dict.set(key, free++);
+      else { dict.clear(); free = 258; clearFlag = true; out(CLEAR); }
+    }
+    out(ent); out(EOI);
+    byte(0);
+  }
+  byte(0x3B);
+  return new Blob([buf.subarray(0, n)], { type:'image/gif' });
+}
+function shrinkFrames(frames, long){
+  const w0 = frames[0].width, h0 = frames[0].height, s = Math.min(1, long / Math.max(w0, h0));
+  const w = Math.round(w0 * s), h = Math.round(h0 * s);
+  const a = document.createElement('canvas'); a.width = w0; a.height = h0; const ga = a.getContext('2d');
+  const b = document.createElement('canvas'); b.width = w; b.height = h; const gb = b.getContext('2d');
+  return frames.map(f => { ga.putImageData(f, 0, 0); gb.drawImage(a, 0, 0, w, h); return gb.getImageData(0, 0, w, h); });
+}
+async function recordVideo(){
+  const mime = pickMime();
+  if (!mime || !ui.view.captureStream) throw new Error('no video recorder');
+  status('recording the video (4 sec)...'); bar(0);
+  const stream = ui.view.captureStream(FPS);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
+  const chunks = [];
+  rec.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+  const stopped = new Promise(r => { rec.onstop = r; });
+  vctx.putImageData(D.frames[0], 0, 0);
+  rec.start(250);
+  await new Promise(r => setTimeout(r, 120));
+  const t0 = performance.now();
+  for (let i = 0; i < D.frames.length; i++) {
+    vctx.putImageData(D.frames[i], 0, 0);
+    bar(i / D.frames.length);
+    const wait = t0 + (i + 1) * 1000 / FPS - performance.now();
+    await new Promise(r => setTimeout(r, Math.max(0, wait)));
+  }
+  await new Promise(r => setTimeout(r, 150));
+  rec.stop(); await stopped;
+  stream.getTracks().forEach(t => t.stop());
+  const type = (rec.mimeType || mime).split(';')[0];
+  const blob = new Blob(chunks, { type });
+  if (blob.size < 2000) throw new Error('the recording came out empty');
+  return { blob, type, ext: type.indexOf('mp4') >= 0 ? 'mp4' : 'webm' };
+}
+async function saveVideo(){
+  if (busy || !D.frames.length) return;
+  busy = true; ui.save.disabled = ui.again.disabled = ui.go.disabled = true; recording = true;
+  let note = '';
+  try {
+    let r;
+    try { r = await recordVideo(); }
+    catch (e) {
+      console.warn('video recorder unavailable, making a GIF', e);
+      status('making a GIF instead (this browser cannot record video)...'); bar(0.5); await tick();
+      r = { blob: gifEncode(shrinkFrames(D.frames, 360), Math.round(100 / FPS)), type:'image/gif', ext:'gif' };
+      note = 'made a GIF (no video recorder here). ';
+    }
+    lastFile = new File([r.blob], 'dream.' + r.ext, { type: r.type });
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl = URL.createObjectURL(r.blob);
+    ui.dl.href = lastUrl; ui.dl.download = 'dream.' + r.ext;
+    let canShare = false; try { canShare = !!(navigator.canShare && navigator.canShare({ files:[lastFile] })); } catch (e) {}
+    ui.share.style.display = canShare ? 'flex' : 'none';
+    ui.saved.style.display = 'flex';
+    D.video = { size: r.blob.size, type: r.type, ext: r.ext };
+    status(note + (r.ext === 'gif' ? 'GIF' : 'video') + ' ready (' + r.ext + ', ' + Math.round(r.blob.size / 1024) + ' KB). ' + (canShare ? 'tap Share to save it to Photos.' : 'tap Download.'));
+    bar(null);
+  } catch (e) {
+    console.error(e); D.errors.push(String(e && e.message || e)); status('saving failed: ' + (e && e.message ? e.message : e)); bar(null);
+  } finally { recording = false; busy = false; ui.save.disabled = ui.again.disabled = ui.go.disabled = false; startPreview(); }
+}
+ui.save.onclick = saveVideo;
+ui.share.onclick = async () => {
+  if (!lastFile) return;
+  try { await navigator.share({ files:[lastFile], title:'Dream.' }); }
+  catch (e) { if (e && e.name !== 'AbortError') { status('share did not work, try Download'); } }
+};
+D.ready = true;
+</script>
+</body>
+</html>
